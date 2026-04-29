@@ -17,23 +17,49 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
   });
 
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Here you would typically send the data to a backend
-    console.log('Form submitted:', formData);
-    setIsSubmitted(true);
-    setTimeout(() => {
-      setIsSubmitted(false);
-      onClose();
-      setFormData({
-        name: '',
-        phone: '',
-        address: '',
-        service: 'giat-la',
-        notes: ''
-      });
-    }, 3000);
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const webhookUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEBHOOK_URL;
+      
+      if (webhookUrl) {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'text/plain',
+          },
+          body: JSON.stringify(formData),
+        });
+      } else {
+        console.warn('VITE_GOOGLE_SHEETS_WEBHOOK_URL chưa được thiết lập. Thông tin chỉ được in ra console.');
+        console.log('Form data:', formData);
+      }
+
+      setIsSubmitted(true);
+      setTimeout(() => {
+        setIsSubmitted(false);
+        onClose();
+        setFormData({
+          name: '',
+          phone: '',
+          address: '',
+          service: 'giat-la',
+          notes: ''
+        });
+      }, 3000);
+    } catch (err) {
+      console.error('Error submitting form:', err);
+      setError('Có lỗi xảy ra khi gửi thông tin. Vui lòng thử lại sau.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -85,6 +111,12 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {error && (
+                    <div className="p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm">
+                      {error}
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Họ và tên *</label>
                     <div className="relative">
@@ -172,9 +204,20 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
                   <div className="pt-4">
                     <button
                       type="submit"
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-blue-200"
+                      disabled={isLoading}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
                     >
-                      Xác nhận đặt lịch
+                      {isLoading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        'Xác nhận đặt lịch'
+                      )}
                     </button>
                   </div>
                 </form>
